@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="pl" class="theme-light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeliverFlow Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.8.0/dist/leaflet.css">
+    <style>
+        :root {
+            --map-bg-light: #ecedf1;
+            --map-bg-dark: #03040b;
+            --map-empty-dark: #171925;
+            --route-light: #4d43a6;
+            --route-dark: #a79cff;
+            --marker-fill: #6f63dd;
+            --marker-selected-fill: #e8b84a;
+            --warehouse-fill: #e8b84a;
+            --destination-fill: #6d28d9;
+            --popup-text: #1a1d2e;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: "Segoe UI", Arial, sans-serif;
+        }
+
+        body {
+            background: var(--map-bg-light);
+        }
+
+        #map {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--map-bg-light);
+            overflow: hidden;
+        }
+
+        #map::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 120ms ease-out;
+            z-index: 250;
+        }
+
+        html.theme-dark body,
+        html.theme-dark #map {
+            background: var(--map-bg-dark);
+        }
+
+        html.theme-dark #map::after {
+            opacity: 1;
+            background: rgba(3, 4, 12, 0.70);
+        }
+
+        .leaflet-container {
+            background: var(--map-bg-light);
+        }
+
+        html.theme-dark .leaflet-container {
+            background: var(--map-empty-dark);
+        }
+
+        .courier-marker {
+            box-sizing: border-box;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: var(--marker-fill);
+            border: 2px solid #ffffff;
+            box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.16);
+        }
+
+        .courier-marker.is-selected {
+            background: var(--marker-selected-fill);
+            border-width: 3px;
+            box-shadow: 0 0 0 3px rgba(232, 184, 74, 0.36), 0 0 14px rgba(232, 184, 74, 0.46);
+        }
+
+        .warehouse-marker {
+            width: 18px;
+            height: 18px;
+            border-radius: 5px;
+            background: var(--warehouse-fill);
+            border: 2px solid #ffffff;
+            box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.2);
+            transform: rotate(45deg);
+        }
+
+        .warehouse-marker::after {
+            content: "";
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            left: 4px;
+            top: 4px;
+            border-radius: 2px;
+            background: rgba(255, 255, 255, 0.92);
+        }
+
+        .destination-marker {
+            width: 20px;
+            height: 20px;
+            border-radius: 50% 50% 50% 0;
+            background: var(--destination-fill);
+            border: 2px solid #ffffff;
+            box-shadow: 0 0 0 3px rgba(109, 40, 217, 0.28), 0 0 18px rgba(109, 40, 217, 0.42);
+            transform: rotate(-45deg);
+        }
+
+        .destination-marker::after {
+            content: "";
+            position: absolute;
+            width: 7px;
+            height: 7px;
+            left: 50%;
+            top: 50%;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.94);
+            transform: translate(-50%, -50%);
+        }
+
+        .leaflet-tile {
+            will-change: auto;
+            backface-visibility: visible;
+            transform: none !important;
+        }
+
+        html.theme-light .leaflet-tile {
+            filter: none;
+        }
+
+        html.theme-dark .leaflet-tile {
+            filter: none;
+        }
+
+        html.theme-dark .leaflet-control-zoom a {
+            background: #32334f;
+            color: #eef2f6;
+            border-bottom-color: #45476a;
+        }
+
+        html.theme-dark .leaflet-control-zoom a:hover {
+            background: #3b3d5f;
+            color: #ffffff;
+        }
+
+        html.theme-dark .leaflet-control-attribution {
+            background: rgba(27, 28, 48, 0.88);
+            color: #b0b4c9;
+        }
+
+        html.theme-dark .leaflet-control-attribution a {
+            color: #d8d5ff;
+        }
+
+        .leaflet-popup-content-wrapper {
+            border-radius: 12px;
+        }
+
+        .leaflet-popup-content {
+            margin: 10px 12px;
+            color: var(--popup-text);
+            font-size: 14px;
+            line-height: 1.3;
+        }
+
+        .courier-popup {
+            max-width: 240px;
+        }
+
+        #map-glass {
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 34%;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 160ms ease-out;
+            z-index: 450;
+        }
+
+        html.theme-dark #map-glass {
+            opacity: 1;
+            background:
+                linear-gradient(90deg, rgba(5, 6, 16, 0.08) 0%, rgba(28, 24, 63, 0.24) 34%, rgba(82, 75, 140, 0.54) 100%);
+            mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.14) 0%, rgba(0, 0, 0, 0.52) 28%, #000000 58%);
+            -webkit-mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.14) 0%, rgba(0, 0, 0, 0.52) 28%, #000000 58%);
+        }
+
+        html.theme-light #map-glass {
+            opacity: 1;
+            background:
+                linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0%, rgba(232, 233, 238, 0.16) 32%, rgba(126, 128, 138, 0.36) 100%);
+            mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.10) 0%, rgba(0, 0, 0, 0.42) 30%, #000000 58%);
+            -webkit-mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.10) 0%, rgba(0, 0, 0, 0.42) 30%, #000000 58%);
+        }
+
+        html.panel-collapsed #map-glass {
+            opacity: 0;
+        }
+
+    </style>
+</head>
+<body>
+<div id="map"></div>
+<div id="map-glass" aria-hidden="true"></div>
+
+<script>
+    window.L_DISABLE_3D = true;
+    window.L_PREFER_CANVAS = true;
+</script>
+<script src="https://unpkg.com/leaflet@1.8.0/dist/leaflet.js"></script>
+<script>
+    var mapElement = document.getElementById("map");
+    var map = L.map("map", {
+        zoomControl: true,
+        preferCanvas: true,
+        zoomAnimation: false,
+        fadeAnimation: false,
+        markerZoomAnimation: false
+    }).setView([50.06143, 19.93658], 12);
+
+    var tileUrls = {
+        LIGHT: {
+            url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+            attribution: "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ",
+            opacity: 1,
+            nativeZoom: 16
+        },
+        DARK: {
+            url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+            attribution: "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ",
+            opacity: 0.78,
+            nativeZoom: 16
+        }
+    };
+    var tileLayer = L.tileLayer(tileUrls.LIGHT.url, {
+        maxZoom: 19,
+        maxNativeZoom: tileUrls.LIGHT.nativeZoom,
+        updateWhenIdle: false,
+        updateWhenZooming: false,
+        updateInterval: 180,
+        keepBuffer: 8,
+        detectRetina: false,
+        attribution: tileUrls.LIGHT.attribution
+    }).addTo(map);
+    tileLayer.on("tileerror", function(event) {
+        var tile = event.tile;
+        if (!tile || tile._dfRetried) {
+            return;
+        }
+        tile._dfRetried = true;
+        setTimeout(function() {
+            var src = tile.src;
+            tile.src = "";
+            tile.src = src;
+        }, 350);
+    });
+
+    var courierMarkers = {};
+    var warehouseMarkers = {};
+    var routeLayer = null;
+    var routeRenderer = L.svg({ padding: 0.5 });
+    var routeOriginalLatLngs = [];
+    var destinationMarker = null;
+    var currentThemeMode = "LIGHT";
+    var invalidateTimer = null;
+    var layoutTimers = [];
+    var readyNotified = false;
+    var trackingCourierId = null;
+    var selectedCourierId = null;
+    var programmaticMove = false;
+    var syncFrame = null;
+    var pendingCourierEntries = null;
+
+    function routeColor() {
+        return currentThemeMode === "DARK" ? getComputedStyle(document.documentElement).getPropertyValue("--route-dark").trim()
+            : getComputedStyle(document.documentElement).getPropertyValue("--route-light").trim();
+    }
+
+    function scheduleInvalidate() {
+        if (invalidateTimer) {
+            clearTimeout(invalidateTimer);
+        }
+        invalidateTimer = setTimeout(function() {
+            map.invalidateSize({ animate: false, pan: false });
+        }, 180);
+    }
+
+    function clearLayoutTimers() {
+        while (layoutTimers.length > 0) {
+            clearTimeout(layoutTimers.pop());
+        }
+    }
+
+    function forceLayoutBurst() {
+        clearLayoutTimers();
+        [90, 260].forEach(function(delay) {
+            layoutTimers.push(setTimeout(function() {
+                map.invalidateSize({ animate: false, pan: false });
+            }, delay));
+        });
+    }
+
+    function resizeMap(width, height) {
+        if (width && height && width > 100 && height > 100) {
+            var roundedWidth = Math.round(width);
+            var roundedHeight = Math.round(height);
+            if (mapElement.style.width === roundedWidth + "px"
+                    && mapElement.style.height === roundedHeight + "px") {
+                scheduleInvalidate();
+                return;
+            }
+            mapElement.style.width = roundedWidth + "px";
+            mapElement.style.height = roundedHeight + "px";
+        }
+        forceLayoutBurst();
+    }
+
+    function notifyMapReady() {
+        if (readyNotified) {
+            return;
+        }
+        if (window.javaConnector && typeof window.javaConnector.mapReady === "function") {
+            readyNotified = true;
+            window.javaConnector.mapReady();
+            forceLayoutBurst();
+        }
+    }
+
+    function setMapCenter(lat, lng, zoom) {
+        trackingCourierId = null;
+        programmaticMove = true;
+        map.setView([lat, lng], zoom || map.getZoom(), { animate: false });
+        programmaticMove = false;
+        scheduleInvalidate();
+    }
+
+    function showOverview(lat, lng, zoom) {
+        trackingCourierId = null;
+        programmaticMove = true;
+        map.setView([lat, lng], zoom || map.getZoom(), { animate: false });
+        programmaticMove = false;
+        scheduleInvalidate();
+    }
+
+    function buildCourierMarker() {
+        return L.divIcon({
+            className: "",
+            html: '<div class="courier-marker"></div>',
+            iconSize: [19, 19],
+            iconAnchor: [9, 9],
+            popupAnchor: [0, -8]
+        });
+    }
+
+    function buildWarehouseMarker() {
+        return L.divIcon({
+            className: "",
+            html: '<div class="warehouse-marker"></div>',
+            iconSize: [22, 22],
+            iconAnchor: [11, 11],
+            popupAnchor: [0, -10]
+        });
+    }
+
+    function buildDestinationMarker() {
+        return L.divIcon({
+            className: "",
+            html: '<div class="destination-marker"></div>',
+            iconSize: [24, 24],
+            iconAnchor: [12, 24],
+            popupAnchor: [0, -22]
+        });
+    }
+
+    function updatePopup(marker, popupHtml) {
+        if (!popupHtml) {
+            return;
+        }
+        if (marker._dfPopupHtml === popupHtml) {
+            return;
+        }
+        marker._dfPopupHtml = popupHtml;
+        if (marker.getPopup()) {
+            marker.setPopupContent(popupHtml);
+        } else {
+            marker.bindPopup(popupHtml);
+        }
+    }
+
+    function courierMarkerElement(marker) {
+        return marker && marker.getElement()
+            ? marker.getElement().querySelector(".courier-marker")
+            : null;
+    }
+
+    function applyCourierSelection(marker, selected) {
+        var element = courierMarkerElement(marker);
+        if (element) {
+            element.classList.toggle("is-selected", selected === true);
+        }
+        if (marker && typeof marker.setZIndexOffset === "function") {
+            marker.setZIndexOffset(selected === true ? 900 : 600);
+        }
+    }
+
+    function setSelectedCourier(id) {
+        selectedCourierId = id || null;
+        Object.keys(courierMarkers).forEach(function(markerId) {
+            applyCourierSelection(courierMarkers[markerId], markerId === selectedCourierId);
+        });
+    }
+
+    function notifyCourierSelected(id) {
+        if (window.javaConnector && typeof window.javaConnector.selectCourier === "function") {
+            window.javaConnector.selectCourier(id);
+        }
+    }
+
+    function addCourier(id, lat, lng, label, popupHtml) {
+        var marker = L.marker([lat, lng], {
+            icon: buildCourierMarker(),
+            title: label || id
+        });
+        updatePopup(marker, popupHtml);
+        marker.on("click", function() {
+            notifyCourierSelected(id);
+        });
+        marker.addTo(map);
+        courierMarkers[id] = marker;
+        applyCourierSelection(marker, id === selectedCourierId);
+    }
+
+    function animateCourier(marker, lat, lng) {
+        if (!marker) {
+            return;
+        }
+        var target = L.latLng(lat, lng);
+        var start = marker.getLatLng();
+        if (!start) {
+            marker.setLatLng(target);
+            updateSelectedRouteStart(marker);
+            return;
+        }
+        if (Math.abs(start.lat - target.lat) < 0.00001 && Math.abs(start.lng - target.lng) < 0.00001) {
+            marker.setLatLng(target);
+            updateSelectedRouteStart(marker);
+            return;
+        }
+        if (marker._dfFrame) {
+            cancelAnimationFrame(marker._dfFrame);
+        }
+        var startedAt = performance.now();
+        var duration = 450;
+
+        function step(now) {
+            var progress = Math.min(1, (now - startedAt) / duration);
+            var currentLat = start.lat + (target.lat - start.lat) * progress;
+            var currentLng = start.lng + (target.lng - start.lng) * progress;
+            marker.setLatLng([currentLat, currentLng]);
+            if (progress === 1) {
+                marker._dfFrame = null;
+                updateSelectedRouteStart(marker);
+                if (trackingCourierId && courierMarkers[trackingCourierId] === marker) {
+                    programmaticMove = true;
+                    map.setView([currentLat, currentLng], map.getZoom(), { animate: false });
+                    programmaticMove = false;
+                }
+            }
+            if (progress < 1) {
+                marker._dfFrame = requestAnimationFrame(step);
+            }
+        }
+
+        marker._dfFrame = requestAnimationFrame(step);
+    }
+
+    function updateSelectedRouteStart(marker) {
+        if (!routeLayer || !marker) {
+            return;
+        }
+        var markerId = null;
+        Object.keys(courierMarkers).some(function(id) {
+            if (courierMarkers[id] === marker) {
+                markerId = id;
+                return true;
+            }
+            return false;
+        });
+        if (!markerId || markerId !== selectedCourierId) {
+            return;
+        }
+        updateRouteStartFromLatLng(marker.getLatLng());
+    }
+
+    function updateRouteStart(lat, lng) {
+        updateRouteStartFromLatLng(L.latLng(lat, lng));
+    }
+
+    function updateRouteStartFromLatLng(latLng) {
+        if (!routeLayer || !latLng || !routeOriginalLatLngs || routeOriginalLatLngs.length === 0) {
+            return;
+        }
+        var visibleLatLngs = visibleRouteLatLngsFrom(latLng);
+        if (!visibleLatLngs || visibleLatLngs.length < 2) {
+            return;
+        }
+        routeLayer.setLatLngs(visibleLatLngs);
+    }
+
+    function visibleRouteLatLngsFrom(latLng) {
+        if (routeOriginalLatLngs.length < 2) {
+            return [latLng];
+        }
+        var best = null;
+        for (var index = 1; index < routeOriginalLatLngs.length; index++) {
+            var candidate = nearestPointOnSegment(latLng, routeOriginalLatLngs[index - 1], routeOriginalLatLngs[index]);
+            if (!best || candidate.distanceSquared < best.distanceSquared) {
+                best = {
+                    latLng: candidate.latLng,
+                    index: index - 1,
+                    distanceSquared: candidate.distanceSquared
+                };
+            }
+        }
+        if (!best) {
+            return routeOriginalLatLngs.slice();
+        }
+        return [best.latLng].concat(routeOriginalLatLngs.slice(best.index + 1));
+    }
+
+    function nearestPointOnSegment(point, start, end) {
+        var referenceLat = (point.lat + start.lat + end.lat) / 3 * Math.PI / 180;
+        var p = projectedMeters(point, referenceLat);
+        var s = projectedMeters(start, referenceLat);
+        var e = projectedMeters(end, referenceLat);
+        var dx = e.x - s.x;
+        var dy = e.y - s.y;
+        var segmentLengthSquared = dx * dx + dy * dy;
+        if (segmentLengthSquared <= 0.001) {
+            return {
+                latLng: start,
+                distanceSquared: squaredDistance(p, s)
+            };
+        }
+        var t = ((p.x - s.x) * dx + (p.y - s.y) * dy) / segmentLengthSquared;
+        t = Math.max(0, Math.min(1, t));
+        var closest = {
+            x: s.x + t * dx,
+            y: s.y + t * dy
+        };
+        return {
+            latLng: L.latLng(
+                closest.y / 6371008.8 * 180 / Math.PI,
+                closest.x / (6371008.8 * Math.cos(referenceLat)) * 180 / Math.PI
+            ),
+            distanceSquared: squaredDistance(p, closest)
+        };
+    }
+
+    function projectedMeters(latLng, referenceLat) {
+        return {
+            x: latLng.lng * Math.PI / 180 * 6371008.8 * Math.cos(referenceLat),
+            y: latLng.lat * Math.PI / 180 * 6371008.8
+        };
+    }
+
+    function squaredDistance(first, second) {
+        var dx = first.x - second.x;
+        var dy = first.y - second.y;
+        return dx * dx + dy * dy;
+    }
+
+    function asLatLng(item) {
+        if (!item) {
+            return null;
+        }
+        if (item.lat != null && item.lng != null) {
+            return L.latLng(item.lat, item.lng);
+        }
+        if (item.length >= 2) {
+            return L.latLng(item[0], item[1]);
+        }
+        return null;
+    }
+
+    function normalizedLatLngs(latLngs) {
+        return (latLngs || []).map(asLatLng).filter(function(item) {
+            return item !== null;
+        });
+    }
+
+    function updateSelectedRouteStartAfterSync() {
+        if (!selectedCourierId || !courierMarkers[selectedCourierId]) {
+            return;
+        }
+        updateSelectedRouteStart(courierMarkers[selectedCourierId]);
+    }
+
+    function updateCourier(id, lat, lng, label, popupHtml) {
+        if (!courierMarkers[id]) {
+            addCourier(id, lat, lng, label, popupHtml);
+            return;
+        }
+        animateCourier(courierMarkers[id], lat, lng);
+        if (label) {
+            courierMarkers[id].options.title = label;
+        }
+        updatePopup(courierMarkers[id], popupHtml);
+    }
+
+    function syncCouriers(entries) {
+        pendingCourierEntries = entries || [];
+        if (syncFrame) {
+            return;
+        }
+        syncFrame = requestAnimationFrame(function() {
+            syncFrame = null;
+            applyCourierSync(pendingCourierEntries);
+            pendingCourierEntries = null;
+        });
+    }
+
+    function applyCourierSync(entries) {
+        var seen = {};
+        var selectedFromEntries = null;
+        (entries || []).forEach(function(entry) {
+            if (entry && entry.selected === true) {
+                selectedFromEntries = entry.id;
+            }
+        });
+        selectedCourierId = selectedFromEntries;
+        (entries || []).forEach(function(entry) {
+            if (!entry || !entry.id || entry.lat == null || entry.lng == null) {
+                return;
+            }
+            seen[entry.id] = true;
+            updateCourier(entry.id, entry.lat, entry.lng, entry.label, entry.popup);
+        });
+        Object.keys(courierMarkers).forEach(function(id) {
+            if (!seen[id]) {
+                removeCourier(id);
+            }
+        });
+        setSelectedCourier(selectedFromEntries);
+        updateSelectedRouteStartAfterSync();
+    }
+
+    function syncWarehouses(entries) {
+        var seen = {};
+        (entries || []).forEach(function(entry) {
+            if (!entry || !entry.id || entry.lat == null || entry.lng == null) {
+                return;
+            }
+            seen[entry.id] = true;
+            var marker = warehouseMarkers[entry.id];
+            if (!marker) {
+                marker = L.marker([entry.lat, entry.lng], {
+                    icon: buildWarehouseMarker(),
+                    title: entry.label || entry.id,
+                    zIndexOffset: 500
+                });
+                marker.addTo(map);
+                warehouseMarkers[entry.id] = marker;
+            } else {
+                marker.setLatLng([entry.lat, entry.lng]);
+                marker.options.title = entry.label || entry.id;
+            }
+            updatePopup(marker, entry.popup);
+        });
+        Object.keys(warehouseMarkers).forEach(function(id) {
+            if (!seen[id]) {
+                map.removeLayer(warehouseMarkers[id]);
+                delete warehouseMarkers[id];
+            }
+        });
+    }
+
+    function focusCourier(id, zoom, follow) {
+        var marker = courierMarkers[id];
+        if (!marker) {
+            return false;
+        }
+        map.closePopup();
+        setSelectedCourier(id);
+        trackingCourierId = follow ? id : null;
+        programmaticMove = true;
+        map.setView(marker.getLatLng(), zoom || 16, { animate: false });
+        programmaticMove = false;
+        scheduleInvalidate();
+        return true;
+    }
+
+    function removeCourier(id) {
+        if (!courierMarkers[id]) {
+            return;
+        }
+        if (courierMarkers[id]._dfFrame) {
+            cancelAnimationFrame(courierMarkers[id]._dfFrame);
+            courierMarkers[id]._dfFrame = null;
+        }
+        map.removeLayer(courierMarkers[id]);
+        delete courierMarkers[id];
+    }
+
+    function clearRoute() {
+        if (routeLayer) {
+            map.removeLayer(routeLayer);
+            routeLayer = null;
+        }
+        routeOriginalLatLngs = [];
+        if (destinationMarker) {
+            map.removeLayer(destinationMarker);
+            destinationMarker = null;
+        }
+    }
+
+    function setDestinationMarker(latLng) {
+        if (!latLng) {
+            if (destinationMarker) {
+                map.removeLayer(destinationMarker);
+                destinationMarker = null;
+            }
+            return;
+        }
+        if (!destinationMarker) {
+            destinationMarker = L.marker(latLng, {
+                icon: buildDestinationMarker(),
+                zIndexOffset: 700,
+                title: "Cel trasy"
+            }).addTo(map);
+        } else {
+            destinationMarker.setLatLng(latLng);
+        }
+    }
+
+    function renderRoute(latLngs, durationSeconds, distanceMeters, fitRoute) {
+        if (!latLngs || latLngs.length === 0) {
+            clearRoute();
+            return;
+        }
+        routeOriginalLatLngs = normalizedLatLngs(latLngs);
+        if (routeOriginalLatLngs.length < 2) {
+            clearRoute();
+            return;
+        }
+        if (routeLayer) {
+            routeLayer.setLatLngs(routeOriginalLatLngs);
+            routeLayer.setStyle({
+                color: routeColor(),
+                weight: 5,
+                opacity: 0.9
+            });
+        } else {
+            routeLayer = L.polyline(routeOriginalLatLngs, {
+                color: routeColor(),
+                weight: 5,
+                opacity: 0.9,
+                renderer: routeRenderer
+            }).addTo(map);
+        }
+        setDestinationMarker(routeOriginalLatLngs[routeOriginalLatLngs.length - 1]);
+        if (selectedCourierId && courierMarkers[selectedCourierId]) {
+            updateSelectedRouteStart(courierMarkers[selectedCourierId]);
+        }
+
+        var bounds = routeLayer.getBounds();
+        if (fitRoute && !map.getBounds().pad(-0.12).contains(bounds)) {
+            programmaticMove = true;
+            map.fitBounds(bounds, {
+                padding: [36, 36],
+                animate: false
+            });
+            programmaticMove = false;
+        }
+
+    }
+
+    function renderRouteFromJava(latLngs, durationSeconds, distanceMeters, fitRoute) {
+        renderRoute(latLngs, durationSeconds, distanceMeters, fitRoute === true);
+    }
+
+    function applyThemeMode(mode) {
+        currentThemeMode = mode === "DARK" ? "DARK" : "LIGHT";
+        document.documentElement.classList.toggle("theme-dark", currentThemeMode === "DARK");
+        document.documentElement.classList.toggle("theme-light", currentThemeMode !== "DARK");
+        var tileConfig = tileUrls[currentThemeMode] || tileUrls.LIGHT;
+        if (tileLayer._url !== tileConfig.url) {
+            tileLayer.setUrl(tileConfig.url);
+            tileLayer.options.attribution = tileConfig.attribution;
+            map.attributionControl.setPrefix(false);
+        }
+        tileLayer.options.maxNativeZoom = tileConfig.nativeZoom || 16;
+        tileLayer.setOpacity(tileConfig.opacity || 1);
+        if (routeLayer) {
+            routeLayer.setStyle({ color: routeColor() });
+        }
+    }
+
+    function setMapPanelCollapsed(collapsed) {
+        document.documentElement.classList.toggle("panel-collapsed", collapsed === true);
+    }
+
+    new ResizeObserver(scheduleInvalidate).observe(document.getElementById("map"));
+    window.addEventListener("resize", scheduleInvalidate);
+    map.on("dragstart", function() {
+        if (!programmaticMove) {
+            trackingCourierId = null;
+        }
+    });
+
+    window.onJavaConnectorReady = function() {
+        notifyMapReady();
+    };
+
+    window.addEventListener("load", function() {
+        notifyMapReady();
+    });
+</script>
+</body>
+</html>
