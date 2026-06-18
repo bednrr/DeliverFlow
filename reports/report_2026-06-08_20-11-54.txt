@@ -1,0 +1,17 @@
+[2026-06-08 21:23:52] [INFO] Zatrzymanie serwera DeliverFlow.
+[2026-06-08 21:23:52] [INFO] Zatrzymano symulację kurierów.
+[2026-06-08 21:19:56] [INFO] Logowanie użytkownika: dyspozytor@deliverflow.local.
+[2026-06-08 21:13:58] [INFO] Logowanie użytkownika: admin@deliverflow.local.
+[2026-06-08 21:12:00] [INFO] Logowanie użytkownika: dyspozytor@deliverflow.local.
+[2026-06-08 21:11:42] [INFO] Przypisano kuriera Patrycja Bieżanów do paczki #5.
+[2026-06-08 21:11:42] [INFO] Utworzono paczkę #5: Prezent.
+[2026-06-08 21:10:47] [INFO] Logowanie użytkownika: klient1@deliverflow.local.
+[2026-06-08 21:08:58] [INFO] Logowanie użytkownika: dyspozytor@deliverflow.local.
+[2026-06-08 21:08:15] [INFO] Logowanie użytkownika: kurier14@deliverflow.local.
+[2026-06-08 21:06:11] [INFO] Przypisano kuriera Łukasz Lagiewnicki do paczki #4.
+[2026-06-08 21:06:10] [INFO] Utworzono paczkę #4: Prezent.
+[2026-06-08 21:02:42] [INFO] Logowanie użytkownika: klient1@deliverflow.local.
+[2026-06-08 20:28:44] [INFO] Logowanie użytkownika: klient1@deliverflow.local.
+[2026-06-08 20:15:36] [INFO] Logowanie użytkownika: dyspozytor@deliverflow.local.
+[2026-06-08 20:11:55] [INFO] Start serwera DeliverFlow na porcie 5050.
+[2026-06-08 20:11:55] [INFO] Uruchomiono symulację kurierów.

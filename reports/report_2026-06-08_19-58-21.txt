@@ -1,0 +1,8 @@
+[2026-06-08 20:06:14] [INFO] Zatrzymanie serwera DeliverFlow.
+[2026-06-08 20:06:14] [INFO] Zatrzymano symulację kurierów.
+[2026-06-08 20:06:03] [INFO] Kurier Piotr Kurier zmienił status na: Przerwa.
+[2026-06-08 19:58:24] [INFO] Przypisano kuriera Sylwia Południe do paczki #2.
+[2026-06-08 19:58:23] [INFO] Start serwera DeliverFlow na porcie 5050.
+[2026-06-08 19:58:23] [INFO] Uruchomiono symulację kurierów.
+[2026-06-08 19:58:23] [INFO] Utworzono dane startowe DeliverFlow.
+[2026-06-08 19:58:23] [INFO] Seed: konta startowe administratora, dyspozytora, klientów i kurierów zostały utworzone.

@@ -1,0 +1,6 @@
+[2026-06-08 21:28:26] [INFO] Zatrzymanie serwera DeliverFlow.
+[2026-06-08 21:28:26] [INFO] Zatrzymanie serwera DeliverFlow.
+[2026-06-08 21:28:26] [INFO] Zatrzymano symulację kurierów.
+[2026-06-08 21:28:13] [INFO] Logowanie użytkownika: admin@deliverflow.local.
+[2026-06-08 21:27:44] [INFO] Start serwera DeliverFlow na porcie 5050.
+[2026-06-08 21:27:44] [INFO] Uruchomiono symulację kurierów.
